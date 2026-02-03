@@ -7,7 +7,8 @@ const ClienteForm = ({ onEvaluate, isLoading }) => {
         deuda_total: 1000,
         historial_crediticio: 'Bueno',
         empleo_estable: 'Sí',
-        monto_solicitado: 5000
+        monto_solicitado: 5000,
+        plazo_meses: 12
     });
 
     const handleChange = (e) => {
@@ -94,6 +95,23 @@ const ClienteForm = ({ onEvaluate, isLoading }) => {
                     onChange={handleChange}
                     required
                 />
+            </div>
+
+            <div className="form-group">
+                <label>Plazo (meses)</label>
+                <select
+                    name="plazo_meses"
+                    value={formData.plazo_meses}
+                    onChange={handleChange}
+                >
+                    <option value="6">6 meses</option>
+                    <option value="12">12 meses</option>
+                    <option value="18">18 meses</option>
+                    <option value="24">24 meses</option>
+                    <option value="36">36 meses</option>
+                    <option value="48">48 meses</option>
+                    <option value="60">60 meses</option>
+                </select>
             </div>
 
             <button type="submit" className="btn" disabled={isLoading}>

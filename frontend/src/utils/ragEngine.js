@@ -125,11 +125,19 @@ export class RAGEngine {
     async evaluate(clientData) {
         if (!this.genAI) throw new Error("API Key no configurada.");
 
-        const clientDesc = `Edad: ${clientData.edad}, Ingresos: ${clientData.ingresos_mensuales}, Deuda: ${clientData.deuda_total}, Historial: ${clientData.historial_crediticio}, Empleo: ${clientData.empleo_estable}, Monto Solicitado: ${clientData.monto_solicitado}`;
+        const clientDesc = `Edad: ${clientData.edad}, Ingresos: ${clientData.ingresos_mensuales} S/., Deuda: ${clientData.deuda_total} S/., Historial: ${clientData.historial_crediticio}, Empleo: ${clientData.empleo_estable}, Monto Solicitado: ${clientData.monto_solicitado} S/., Plazo: ${clientData.plazo_meses} meses`;
 
         // RAG Search
         const similarCases = await this.search(clientDesc, 3);
         const contextStr = similarCases.map(c => `- Caso Similar: ${c.text}`).join('\n');
+
+        // Cálculo de cuota mensual estimada (tasa referencial 15% anual)
+        const tasaAnual = 0.15;
+        const tasaMensual = tasaAnual / 12;
+        const plazo = parseInt(clientData.plazo_meses) || 12;
+        const monto = parseFloat(clientData.monto_solicitado) || 0;
+        const cuotaMensual = monto * (tasaMensual * Math.pow(1 + tasaMensual, plazo)) / (Math.pow(1 + tasaMensual, plazo) - 1);
+        const ratioEndeudamiento = ((cuotaMensual + parseFloat(clientData.deuda_total || 0) / plazo) / parseFloat(clientData.ingresos_mensuales) * 100).toFixed(1);
 
         const prompt = `
             Actúa como un experto analista de riesgo crediticio.
@@ -137,16 +145,23 @@ export class RAGEngine {
 
             CLIENTE ACTUAL:
             ${clientDesc}
+            
+            ANÁLISIS FINANCIERO:
+            - Cuota Mensual Estimada: S/. ${cuotaMensual.toFixed(2)} (tasa referencial 15% anual)
+            - Ratio de Endeudamiento: ${ratioEndeudamiento}% de sus ingresos
 
             CONTEXTO HISTÓRICO:
             ${contextStr}
 
             IMPORTANTE: Responde ÚNICAMENTE con un JSON válido. No uses bloques de código markdown.
             La moneda es Nuevos Soles (S/.).
+            Considera el plazo solicitado y la cuota mensual en tu análisis.
             Formato:
             {
                 "decision": "Aprobado" o "Rechazado",
-                "explicacion": "Texto breve justificando."
+                "explicacion": "Texto breve justificando.",
+                "cuota_mensual": ${cuotaMensual.toFixed(2)},
+                "ratio_endeudamiento": "${ratioEndeudamiento}%"
             }
             `;
 
@@ -165,16 +180,18 @@ export class RAGEngine {
 
             const decisionJson = JSON.parse(cleanedText);
 
-            // Devolvemos contexto para gráficas
+            // Devolvemos contexto para gráficas y datos de cuota
             return {
                 ...decisionJson,
-                similarCases: similarCases
+                similarCases: similarCases,
+                cuota_mensual: cuotaMensual.toFixed(2),
+                ratio_endeudamiento: ratioEndeudamiento
             };
 
         } catch (error) {
             console.error("Gemini Error Final:", error);
             if (error.message.includes("401") || error.message.includes("403")) {
-                throw new Error("Clave API rechazado. Verifica que tu API Key sea correcta.");
+                throw new Error("Clave API rechazada. Verifica que tu API Key sea correcta.");
             }
             if (error.message.includes("404")) {
                 throw new Error(`Error 404: El modelo ${this.modelName} no está disponible. Verifica tu API Key.`);
@@ -183,3 +200,4 @@ export class RAGEngine {
         }
     }
 }
+
