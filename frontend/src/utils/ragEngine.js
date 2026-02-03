@@ -29,6 +29,99 @@ export class RAGEngine {
 
     // ... (indexData y search se mantienen igual) ...
 
+    async ingestExcel(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+                    this.knowledgeBase = jsonData.map(row => ({
+                        originalData: row,
+                        text: Object.entries(row)
+                            .map(([k, v]) => `${k}: ${v}`)
+                            .join(', '),
+                        embedding: null
+                    }));
+
+                    resolve(this.knowledgeBase.length);
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            reader.onerror = (error) => reject(error);
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    async indexData(statusCallback) {
+        if (!this.genAI) throw new Error("API Key no configurada.");
+
+        const BATCH_SIZE = 10;
+
+        for (let i = 0; i < this.knowledgeBase.length; i += BATCH_SIZE) {
+            const batch = this.knowledgeBase.slice(i, i + BATCH_SIZE);
+            if (statusCallback) statusCallback(`Procesando lote ${Math.min(i + BATCH_SIZE, this.knowledgeBase.length)}/${this.knowledgeBase.length}...`);
+
+            let retries = 3;
+            let success = false;
+
+            while (retries > 0 && !success) {
+                try {
+                    const requests = batch.map(item => ({
+                        content: { parts: [{ text: item.text }] }
+                    }));
+
+                    const result = await this.embeddingModel.batchEmbedContents({
+                        requests: requests
+                    });
+
+                    if (result.embeddings) {
+                        result.embeddings.forEach((emb, index) => {
+                            batch[index].embedding = emb.values;
+                        });
+                    }
+                    success = true;
+                    await new Promise(r => setTimeout(r, 1000));
+
+                } catch (e) {
+                    console.error("Batch Error:", e);
+                    if (e.message.includes("429") || e.message.includes("404")) {
+                        const waitTime = 5000;
+                        if (statusCallback) statusCallback(`Límite de API alcanzado. Esperando ${waitTime / 1000}s...`);
+                        await new Promise(r => setTimeout(r, waitTime));
+                        retries--;
+                    } else {
+                        break;
+                    }
+                }
+            }
+
+            if (!success && statusCallback) statusCallback("Error procesando un lote. Saltando...");
+        }
+        return this.knowledgeBase.length;
+    }
+
+    async search(queryText, k = 3) {
+        if (!this.genAI) throw new Error("API Key no configurada.");
+
+        const result = await this.embeddingModel.embedContent(queryText);
+        const queryVector = result.embedding.values;
+
+        const scoredDocs = this.knowledgeBase
+            .filter(doc => doc.embedding)
+            .map(doc => ({
+                ...doc,
+                score: cosineSimilarity(queryVector, doc.embedding)
+            }));
+
+        scoredDocs.sort((a, b) => b.score - a.score);
+        return scoredDocs.slice(0, k);
+    }
+
     async evaluate(clientData) {
         if (!this.genAI) throw new Error("API Key no configurada.");
 
