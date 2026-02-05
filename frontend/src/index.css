@@ -15,7 +15,7 @@ code {
 }
 
 .container {
-  max-width: 800px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 20px;
 }
@@ -75,4 +75,59 @@ code {
 .rejected {
   border-left-color: #dc3545;
   background: #ffe6e6;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+button:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+input[type="file"] {
+  padding: 8px;
+  border: 2px dashed #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+input[type="file"]:hover {
+  border-color: #007bff;
+}
+
+table {
+  font-size: 0.9rem;
+}
+
+table th {
+  font-weight: 600;
+}
+
+table tr {
+  transition: background 0.2s;
+}
+
+table tbody tr:hover {
+  background: #f0f0f0 !important;
+}
+
+h1, h2, h3, h4 {
+  color: #333;
+}
+
+.btn {
+  transition: all 0.3s;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 10px;
+  }
+
+  .card {
+    padding: 15px;
+  }
 }

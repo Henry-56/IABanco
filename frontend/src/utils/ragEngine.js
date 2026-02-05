@@ -125,6 +125,8 @@ export class RAGEngine {
     async evaluate(clientData) {
         if (!this.genAI) throw new Error("API Key no configurada.");
 
+        const startTime = Date.now();
+
         const clientDesc = `Edad: ${clientData.edad}, Ingresos: ${clientData.ingresos_mensuales} S/., Deuda: ${clientData.deuda_total} S/., Historial: ${clientData.historial_crediticio}, Empleo: ${clientData.empleo_estable}, Monto Solicitado: ${clientData.monto_solicitado} S/., Plazo: ${clientData.plazo_meses} meses`;
 
         // RAG Search
@@ -145,7 +147,7 @@ export class RAGEngine {
 
             CLIENTE ACTUAL:
             ${clientDesc}
-            
+
             ANÁLISIS FINANCIERO:
             - Cuota Mensual Estimada: S/. ${cuotaMensual.toFixed(2)} (tasa referencial 15% anual)
             - Ratio de Endeudamiento: ${ratioEndeudamiento}% de sus ingresos
@@ -156,12 +158,16 @@ export class RAGEngine {
             IMPORTANTE: Responde ÚNICAMENTE con un JSON válido. No uses bloques de código markdown.
             La moneda es Nuevos Soles (S/.).
             Considera el plazo solicitado y la cuota mensual en tu análisis.
+            Incluye un "scoreTotal" estimado de 0-100 basado en la evaluación del riesgo.
             Formato:
             {
                 "decision": "Aprobado" o "Rechazado",
-                "explicacion": "Texto breve justificando.",
+                "scoreTotal": 75,
+                "tasa": "15.0%",
+                "explicacion": "Texto detallado justificando la decisión, mencionando factores clave como edad, ingresos, deuda, historial y empleo.",
                 "cuota_mensual": ${cuotaMensual.toFixed(2)},
-                "ratio_endeudamiento": "${ratioEndeudamiento}%"
+                "ratio_endeudamiento": "${ratioEndeudamiento}%",
+                "factores_clave": ["Factor 1", "Factor 2", "Factor 3"]
             }
             `;
 
@@ -180,12 +186,16 @@ export class RAGEngine {
 
             const decisionJson = JSON.parse(cleanedText);
 
+            const endTime = Date.now();
+            const tiempoEvaluacion = endTime - startTime;
+
             // Devolvemos contexto para gráficas y datos de cuota
             return {
                 ...decisionJson,
                 similarCases: similarCases,
                 cuota_mensual: cuotaMensual.toFixed(2),
-                ratio_endeudamiento: ratioEndeudamiento
+                ratio_endeudamiento: ratioEndeudamiento,
+                tiempoEvaluacion
             };
 
         } catch (error) {
