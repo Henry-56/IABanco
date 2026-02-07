@@ -19,10 +19,12 @@ export class RAGEngine {
 
     init(apiKey) {
         this.genAI = new GoogleGenerativeAI(apiKey);
-        // Usamos el modelo más nuevo para embeddings (mejor cuota)
-        this.embeddingModel = this.genAI.getGenerativeModel({ model: "text-embedding-004" });
+        // Usamos el modelo actual de embeddings (gemini-embedding-001)
+        // Nota: text-embedding-004 fue deprecado en enero 2026
+        this.embeddingModel = this.genAI.getGenerativeModel({ model: "gemini-embedding-001" });
 
-        // CAMBIO: Usamos el modelo detectado en el diagnóstico
+        // Modelo para generación de texto (actualizado a 2.5)
+        // Nota: gemini-1.5-flash fue deprecado
         this.modelName = "gemini-2.5-flash";
         this.model = this.genAI.getGenerativeModel({ model: this.modelName });
     }
